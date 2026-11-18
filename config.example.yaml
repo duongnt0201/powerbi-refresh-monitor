@@ -1,0 +1,38 @@
+# Power BI Refresh Monitor - Configuration Template
+# Rename this file to pbi_config.yaml and fill in your details.
+
+powerbi:
+  # Configuration for Microsoft Entra ID (Azure AD) App Registration
+  # Required if you want to use the API sync/monitoring feature.
+  azure_tenant_id: ""         # e.g., "common" or your specific Directory ID
+  azure_client_id: "04b07795-8ddb-461a-bbee-02f9e1bf7b46"  # Default Azure CLI Client ID (supports MFA)
+  
+  # List of Workspaces and Datasets to monitor
+  workspaces:
+    - id: "11111111-2222-3333-4444-555555555555" # Replace with your Workspace ID
+      name: "Finance Workspace"
+      datasets:
+        - id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" # Replace with your Dataset ID
+          name: "Revenue Report"
+        - id: "ffffffff-gggg-hhhh-iiii-jjjjjjjjjjjj"
+          name: "Expense Dashboard"
+          
+    - id: "66666666-7777-8888-9999-000000000000"
+      name: "Marketing Workspace"
+      datasets:
+        - id: "kkkkkkkk-llll-mmmm-nnnn-oooooooooooo"
+          name: "Campaign Performance"
+
+dashboard:
+  page_title: "Power BI Refresh Monitor"
+  refresh_interval_seconds: 300  # UI auto-refresh rate in seconds
+  status_data_source: "hybrid"   # Options: "db" (SQLite only), "api" (live API only), "hybrid" (both)
+  status_cache_seconds: 45       # Cache API responses to prevent rate limiting
+  max_workers: 8                 # Number of parallel workers for fetching statuses
+  api_fallback_workers: 4
+  hybrid_db_lookback_days: 30
+  
+collector:
+  schedule_interval_hours: 6     # Run cron-job collector every X hours
+  rate_limit_per_minute: 180     # Limit requests to avoid Microsoft API rate limits
+  ignored_dataset_keys: []       # Format: ["workspace_id:dataset_id"]

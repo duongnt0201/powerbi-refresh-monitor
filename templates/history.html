@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Power BI Refresh History - Raw Data Log">
+    <title>{{ page_title }} - Raw Data</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Google Fonts & Icons for Obsidian Pulse -->
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+</head>
+<body>
+    <div class="app">
+
+        <!-- ─── Header ─────────────────────────── -->
+        <header class="header">
+            <div class="header-left">
+                <div class="header-logo" style="background: linear-gradient(135deg, #8b5cf6, #a78bfa);">📋</div>
+                <div class="header-title">
+                    <h1>Refresh History - Raw Data</h1>
+                    <p>Lich su chi tiet toan bo luot refresh datasets</p>
+                </div>
+            </div>
+            <div class="header-right">
+                <a href="/" class="btn-refresh" style="text-decoration: none;">
+                    <span>⚡</span>
+                    <span>Dashboard</span>
+                </a>
+                <div class="header-timestamp">
+                    <div>Cap nhat luc</div>
+                    <div class="time" id="lastUpdated">--:--:--</div>
+                </div>
+                <button class="btn-refresh" id="btnRefresh" title="Refresh ngay (phim R)">
+                    <span class="refresh-icon">🔄</span>
+                    <span>Refresh</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- ─── Time Range Filters ───────────────── -->
+        <section class="time-filters">
+            <div class="time-filter-group">
+                <span class="filter-label">Khung gio:</span>
+                <button class="time-btn active" data-range="today">Hom nay</button>
+                <button class="time-btn" data-range="24h">24h qua</button>
+                <button class="time-btn" data-range="7d">7 ngay</button>
+                <button class="time-btn" data-range="30d">30 ngay</button>
+                <button class="time-btn" data-range="all">Tat ca</button>
+            </div>
+            <div class="time-filter-group">
+                <span class="filter-label">Tu chon:</span>
+                <input type="datetime-local" id="dateFrom" class="date-input">
+                <span class="filter-label">den</span>
+                <input type="datetime-local" id="dateTo" class="date-input">
+                <button class="time-btn" id="btnApplyCustom">Ap dung</button>
+            </div>
+            <div class="time-filter-group">
+                <span class="filter-label">Trang thai:</span>
+                <button class="status-filter-btn active" data-status="all">Tat ca</button>
+                <button class="status-filter-btn" data-status="Completed">✅ Thanh cong</button>
+                <button class="status-filter-btn" data-status="Failed">❌ That bai</button>
+            </div>
+        </section>
+
+        <!-- ─── Stats Bar ────────────────────────── -->
+        <div class="raw-stats-bar">
+            <div class="raw-stat">
+                <span class="raw-stat-label">Tong luot:</span>
+                <span class="raw-stat-value" id="rawTotal">0</span>
+            </div>
+            <div class="raw-stat">
+                <span class="raw-stat-label">Thanh cong:</span>
+                <span class="raw-stat-value raw-success" id="rawSuccess">0</span>
+            </div>
+            <div class="raw-stat">
+                <span class="raw-stat-label">That bai:</span>
+                <span class="raw-stat-value raw-failed" id="rawFailed">0</span>
+            </div>
+            <div class="raw-stat">
+                <span class="raw-stat-label">Ti le:</span>
+                <span class="raw-stat-value" id="rawRate">0%</span>
+            </div>
+            <div style="margin-left: auto;">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="searchInput" placeholder="Tim dataset hoac workspace..." autocomplete="off">
+                </div>
+            </div>
+            <button class="btn-refresh" id="btnExport" title="Xuat CSV">
+                <span>📥</span>
+                <span>Xuat CSV</span>
+            </button>
+        </div>
+
+        <!-- ─── Raw Data Table ───────────────────── -->
+        <div class="table-container">
+            <table class="dataset-table" id="rawTable">
+                <thead>
+                    <tr>
+                        <th style="min-width: 200px;" data-sort="dataset">Project / Dataset</th>
+                        <th style="min-width: 100px;" data-sort="status">Trạng thái</th>
+                        <th style="min-width: 180px;">Bắt đầu / Kết thúc</th>
+                        <th style="min-width: 150px;" data-sort="duration">Chi tiết</th>
+                        <th style="min-width: 200px;">Thông tin lỗi</th>
+                    </tr>
+                </thead>
+                <tbody id="rawTableBody">
+                    <!-- Populated by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ─── Pagination ───────────────────────── -->
+        <div class="pagination" id="pagination">
+        </div>
+
+        <!-- ─── Bottom Navigation (Mobile) ──────── -->
+        <nav class="mobile-nav">
+            <a href="/" class="nav-item">
+                <span class="material-symbols-outlined">dashboard</span>
+                <span>Dashboard</span>
+            </a>
+            <a href="/history" class="nav-item active">
+                <span class="material-symbols-outlined">history</span>
+                <span>Lịch sử</span>
+            </a>
+            <button class="nav-item" id="mobileRefresh">
+                <span class="material-symbols-outlined">sync</span>
+                <span>Tải lại</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- ─── Toast Container ────────────────────── -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- ─── Scripts ────────────────────────────── -->
+    <script src="{{ url_for('static', filename='js/history.js') }}"></script>
+</body>
+</html>

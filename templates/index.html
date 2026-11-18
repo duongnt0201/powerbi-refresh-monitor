@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Power BI Refresh Monitoring Dashboard - Theo dõi trạng thái refresh datasets">
+    <title>{{ page_title }}</title>
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Google Fonts & Icons for Obsidian Pulse -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body data-refresh-interval="{{ refresh_interval }}">
+    <div class="app">
+
+        <!-- ─── Header ─────────────────────────── -->
+        <header class="header">
+            <div class="header-left">
+                <div class="header-logo">⚡</div>
+                <div class="header-title">
+                    <h1>{{ page_title }}</h1>
+                    <p>Theo dõi trạng thái refresh datasets theo thời gian thực</p>
+                </div>
+            </div>
+            <div class="header-right">
+                <div id="connectionStatus" class="connection-status loading">
+                    <span class="status-dot"></span>
+                    <span id="connectionLabel">Connecting...</span>
+                </div>
+
+                <div class="header-timestamp">
+                    <div>Cập nhật lúc</div>
+                    <div class="time" id="lastUpdated">--:--:--</div>
+                </div>
+
+                <a href="/history" class="btn-refresh" style="text-decoration: none;">
+                    <span>📋</span>
+                    <span>Raw Data</span>
+                </a>
+
+                <div class="auto-refresh">
+                    <div class="countdown-ring">
+                        <svg viewBox="0 0 36 36">
+                            <circle class="bg" cx="18" cy="18" r="14" />
+                            <circle class="progress" id="countdownProgress" cx="18" cy="18" r="14" />
+                        </svg>
+                        <span class="countdown-number" id="countdownNumber">{{ refresh_interval }}</span>
+                    </div>
+                    <button class="btn-refresh" id="btnRefresh" title="Refresh ngay (phím R)">
+                        <span class="refresh-icon">🔄</span>
+                        <span>Refresh</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- ─── Error Banner ───────────────────── -->
+        <div class="error-banner" id="errorBanner">
+            <span class="error-banner-icon">⚠️</span>
+            <span class="error-banner-text" id="errorText"></span>
+            <button class="error-banner-dismiss" onclick="this.parentElement.classList.remove('visible')">✕</button>
+        </div>
+
+        <!-- ─── Time Filters ─────────────────────── -->
+        <section class="time-filters"
+            style="margin-bottom: 24px; flex-direction: column; align-items: flex-start; gap: 16px;">
+            <div class="time-filter-group" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <span class="filter-label" style="align-self: center;">Khung giờ:</span>
+                <button class="time-btn" data-time="today">Hôm nay</button>
+                <button class="time-btn" data-time="24h">24h qua</button>
+                <button class="time-btn" data-time="7d">7 ngày</button>
+                <button class="time-btn active" data-time="30d">30 ngày</button>
+            </div>
+
+            <div class="type-filter-group" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <span class="filter-label" style="align-self: center;">Refresh:</span>
+                <button class="type-btn active" data-type="all">Tất cả</button>
+                <button class="type-btn" data-type="Scheduled">⏰ Lịch trình (Scheduled)</button>
+                <button class="type-btn" data-type="OnDemand">👆 Thủ công (On Demand)</button>
+                <button class="type-btn" data-type="Other">⚙️ Khác (API/Unknown)</button>
+            </div>
+
+            <div class="workspace-filter-group" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                <span class="filter-label" style="align-self: center;">Workspace:</span>
+                <div class="ws-dropdown" id="wsDropdown">
+                    <button class="ws-dropdown-toggle" id="wsDropdownToggle">
+                        <span id="wsDropdownLabel">Tất cả workspace</span>
+                        <span class="ws-dropdown-arrow">▾</span>
+                    </button>
+                    <div class="ws-dropdown-menu" id="wsDropdownMenu">
+                        <div class="ws-dropdown-search">
+                            <input type="text" id="wsSearchInput" placeholder="Tìm workspace..." autocomplete="off">
+                        </div>
+                        <label class="ws-dropdown-item ws-select-all" id="wsSelectAll">
+                            <input type="checkbox" checked> Chọn tất cả
+                        </label>
+                        <div class="ws-dropdown-list" id="wsDropdownList">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ─── Summary Cards ──────────────────── -->
+        <section class="summary-cards">
+            <div class="summary-card total">
+                <div class="card-header">
+                    <span class="card-label">Tổng Datasets</span>
+                    <div class="card-icon">📊</div>
+                </div>
+                <div class="card-value" id="totalDatasets">0</div>
+                <div class="card-subtitle" id="totalSubtitle">datasets đang theo dõi</div>
+            </div>
+
+            <div class="summary-card success">
+                <div class="card-header">
+                    <span class="card-label">Tỉ Lệ Thành Công</span>
+                    <div class="card-icon">✅</div>
+                </div>
+                <div class="card-value" id="successRate">0%</div>
+                <div class="card-subtitle" id="successSubtitle">datasets thành công/ tổng datasets</div>
+            </div>
+
+            <div class="summary-card refresh-count">
+                <div class="card-header">
+                    <span class="card-label">Tổng Lượt Refresh</span>
+                    <div class="card-icon">🔄</div>
+                </div>
+                <div class="card-value" id="refreshRatio">0/0</div>
+                <div class="card-subtitle" id="refreshRatioSubtitle">thành công / tổng lượt refresh</div>
+            </div>
+
+            <div class="summary-card failed">
+                <div class="card-header">
+                    <span class="card-label">Thất Bại</span>
+                    <div class="card-icon">❌</div>
+                </div>
+                <div class="card-value" id="failedCount">0</div>
+                <div class="card-subtitle" id="failedSubtitle">Không có lỗi nào</div>
+            </div>
+
+            <div class="summary-card duration">
+                <div class="card-header">
+                    <span class="card-label">Thời Gian TB</span>
+                    <div class="card-icon">⏱️</div>
+                </div>
+                <div class="card-value" id="avgDuration">—</div>
+                <div class="card-subtitle" id="durationSubtitle">thời gian refresh trung bình</div>
+            </div>
+        </section>
+
+        <!-- ─── Analytics Charts ───────────────── -->
+        <section class="charts-section"
+            style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-bottom: 24px;">
+            <!-- Biểu đồ Tỉ lệ thành công -->
+            <div class="chart-card"
+                style="background: var(--surface-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px;">
+                <h3
+                    style="margin-top: 0; margin-bottom: 12px; font-size: 14px; font-weight: 600; color: var(--text-secondary);">
+                    Tỉ Lệ Thành Công (%)</h3>
+                <div style="position: relative; height: 260px; width: 100%;">
+                    <canvas id="successRateChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Biểu đồ Datasets lỗi -->
+            <div class="chart-card"
+                style="background: var(--surface-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px;">
+                <h3 style="margin-top: 0; margin-bottom: 12px; font-size: 14px; font-weight: 600; color: var(--error);">
+                    Top 10 Báo Cáo Thất Bại</h3>
+                <div style="position: relative; height: 260px; width: 100%;">
+                    <canvas id="failedChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Biểu đồ Thời gian TB -->
+            <div class="chart-card"
+                style="background: var(--surface-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px;">
+                <h3
+                    style="margin-top: 0; margin-bottom: 12px; font-size: 14px; font-weight: 600; color: var(--text-secondary);">
+                    Thời Gian Refresh (Phút)</h3>
+                <div style="position: relative; height: 260px; width: 100%;">
+                    <canvas id="durationChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Biểu đồ Top Lâu Nhất -->
+            <div class="chart-card"
+                style="background: var(--surface-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px;">
+                <h3
+                    style="margin-top: 0; margin-bottom: 12px; font-size: 14px; font-weight: 600; color: var(--text-secondary);">
+                    Top 10 Refresh Lâu Nhất (Phút)</h3>
+                <div style="position: relative; height: 260px; width: 100%;">
+                    <canvas id="topDurationChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- ─── Toolbar ────────────────────────── -->
+        <div class="toolbar">
+            <div class="toolbar-left">
+                <h2>Danh sách Datasets</h2>
+                <span class="dataset-count">0</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div class="filter-buttons">
+                    <button class="filter-btn active" data-filter="all">Tất cả <span class="count">(0)</span></button>
+                    <button class="filter-btn" data-filter="success">✅ Thành công <span
+                            class="count">(0)</span></button>
+                    <button class="filter-btn" data-filter="failed">❌ Thất bại <span class="count">(0)</span></button>
+                    <button class="filter-btn" data-filter="running">🔄 Đang chạy <span
+                            class="count">(0)</span></button>
+                </div>
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="searchInput" placeholder="Tìm dataset hoặc workspace..." autocomplete="off">
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── Dataset Table ──────────────────── -->
+        <div class="table-container">
+            <table class="dataset-table">
+                <thead>
+                    <tr>
+                        <th style="min-width: 200px;">Project / Dataset</th>
+                        <th style="min-width: 100px;">Trạng thái</th>
+                        <th style="min-width: 150px;">Thời gian</th>
+                        <th style="min-width: 150px;">Chi tiết</th>
+                        <th style="min-width: 150px;">Tỉ lệ thành công</th>
+                        <th style="min-width: 100px;">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody id="datasetTableBody">
+                    <!-- Populated by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ─── Bottom Navigation (Mobile) ──────── -->
+        <nav class="mobile-nav">
+            <a href="/" class="nav-item active">
+                <span class="material-symbols-outlined">dashboard</span>
+                <span>Dashboard</span>
+            </a>
+            <a href="/history" class="nav-item">
+                <span class="material-symbols-outlined">history</span>
+                <span>Lịch sử</span>
+            </a>
+            <button class="nav-item" id="mobileRefresh">
+                <span class="material-symbols-outlined">sync</span>
+                <span>Tải lại</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- ─── History Modal ──────────────────────── -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <div class="modal-header">
+                <div>
+                    <h3 id="modalTitle">Dataset Name</h3>
+                    <div class="modal-subtitle" id="modalSubtitle">Workspace • History</div>
+                </div>
+                <button class="btn-close-modal" id="btnCloseModal" title="Đóng (Esc)">✕</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── Toast Container ────────────────────── -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- ─── Scripts ────────────────────────────── -->
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+
+</html>

@@ -1,0 +1,28 @@
+# Environment & Configuration
+pbi_config.yaml
+.env
+
+# Python runtime cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Databases & cache files
+*.db
+*.bin
+*.lock
+*.log
+
+# Generated/Output files
+exports/
+backups/
+logs/
+*.csv
+*.parquet
+
+# Virtual environment
+venv/
+.venv/
+env/
+ENV/
